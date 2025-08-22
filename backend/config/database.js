@@ -45,16 +45,81 @@ async function initDatabase() {
                   market VARCHAR(20) NOT NULL,
                   board VARCHAR(20) NOT NULL,
                   industry VARCHAR(100),
+                  total_market_value DECIMAL(15,2) DEFAULT 0 COMMENT '总市值(亿元)',
+                  circulating_market_value DECIMAL(15,2) DEFAULT 0 COMMENT '流通市值(亿元)',
+                  current_price DECIMAL(10,4) DEFAULT 0 COMMENT '当前价格',
+                  change_percentage DECIMAL(8,4) DEFAULT 0 COMMENT '涨跌幅(%)',
+                  change_amount DECIMAL(10,4) DEFAULT 0 COMMENT '涨跌额',
+                  volume BIGINT DEFAULT 0 COMMENT '成交量',
+                  turnover DECIMAL(20,2) DEFAULT 0 COMMENT '成交额(万元)',
                   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                   INDEX idx_code (code),
                   INDEX idx_market (market),
-                  INDEX idx_board (board)
+                  INDEX idx_board (board),
+                  INDEX idx_total_market_value (total_market_value),
+                  INDEX idx_circulating_market_value (circulating_market_value)
               ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
           `);
           console.log('股票表创建成功');
         } else {
-          console.log('股票表已存在，跳过创建');
+          console.log('股票表已存在，检查是否需要添加市值字段...');
+          
+          // 检查并添加缺失的市值字段
+          const [columns] = await connection.query(`
+              SELECT COLUMN_NAME 
+              FROM INFORMATION_SCHEMA.COLUMNS 
+              WHERE TABLE_SCHEMA = 'gupiao_db' 
+              AND TABLE_NAME = 'stocks' 
+              AND COLUMN_NAME IN ('total_market_value', 'circulating_market_value', 'current_price', 'change_percentage', 'change_amount', 'volume', 'turnover')
+          `);
+          
+          const existingColumns = columns.map(col => col.COLUMN_NAME);
+          console.log('已存在的市值字段:', existingColumns);
+          
+          // 需要添加的字段
+          const columnsToAdd = [
+              { name: 'total_market_value', definition: 'DECIMAL(15,2) DEFAULT 0 COMMENT "总市值(亿元)"' },
+              { name: 'circulating_market_value', definition: 'DECIMAL(15,2) DEFAULT 0 COMMENT "流通市值(亿元)"' },
+              { name: 'current_price', definition: 'DECIMAL(10,4) DEFAULT 0 COMMENT "当前价格"' },
+              { name: 'change_percentage', definition: 'DECIMAL(8,4) DEFAULT 0 COMMENT "涨跌幅(%)"' },
+              { name: 'change_amount', definition: 'DECIMAL(10,4) DEFAULT 0 COMMENT "涨跌额"' },
+              { name: 'volume', definition: 'BIGINT DEFAULT 0 COMMENT "成交量"' },
+              { name: 'turnover', definition: 'DECIMAL(20,2) DEFAULT 0 COMMENT "成交额(万元)"' }
+          ];
+          
+          for (const column of columnsToAdd) {
+              if (!existingColumns.includes(column.name)) {
+                  console.log(`添加字段: ${column.name}`);
+                  await connection.query(`ALTER TABLE stocks ADD COLUMN ${column.name} ${column.definition}`);
+                  console.log(`字段 ${column.name} 添加成功`);
+              } else {
+                  console.log(`字段 ${column.name} 已存在，跳过`);
+              }
+          }
+          
+          // 检查并添加索引
+          try {
+              await connection.query('ALTER TABLE stocks ADD INDEX idx_total_market_value (total_market_value)');
+              console.log('总市值索引添加成功');
+          } catch (error) {
+              if (error.code === 'ER_DUP_KEYNAME') {
+                  console.log('总市值索引已存在');
+              } else {
+                  console.log('添加总市值索引失败:', error.message);
+              }
+          }
+          
+          try {
+              await connection.query('ALTER TABLE stocks ADD INDEX idx_circulating_market_value (circulating_market_value)');
+              console.log('流通市值索引添加成功');
+          } catch (error) {
+              if (error.code === 'ER_DUP_KEYNAME') {
+                  console.log('流通市值索引已存在');
+              } else {
+                  console.log('添加流通市值索引失败:', error.message);
+              }
+          }
         }
         
         // 关闭临时连接

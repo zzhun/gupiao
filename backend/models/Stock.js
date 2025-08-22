@@ -4,20 +4,44 @@ class Stock {
     static async create(stockData) {
         try {
             const db = await getPool();
-            const { code, name, market, board, industry } = stockData;
+            const { 
+                code, 
+                name, 
+                market, 
+                board, 
+                industry, 
+                totalMarketValue, 
+                circulatingMarketValue, 
+                currentPrice, 
+                changePercentage, 
+                changeAmount, 
+                volume, 
+                turnover 
+            } = stockData;
             
             // 使用 INSERT ... ON DUPLICATE KEY UPDATE 语法
             // 如果股票代码已存在，则更新其他信息
             const [result] = await db.execute(
-                `INSERT INTO stocks (code, name, market, board, industry) 
-                 VALUES (?, ?, ?, ?, ?) 
+                `INSERT INTO stocks (
+                    code, name, market, board, industry, 
+                    total_market_value, circulating_market_value, current_price, 
+                    change_percentage, change_amount, volume, turnover
+                ) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
                  ON DUPLICATE KEY UPDATE 
                  name = VALUES(name), 
                  market = VALUES(market), 
                  board = VALUES(board),
                  industry = VALUES(industry),
+                 total_market_value = VALUES(total_market_value),
+                 circulating_market_value = VALUES(circulating_market_value),
+                 current_price = VALUES(current_price),
+                 change_percentage = VALUES(change_percentage),
+                 change_amount = VALUES(change_amount),
+                 volume = VALUES(volume),
+                 turnover = VALUES(turnover),
                  updated_at = CURRENT_TIMESTAMP`,
-                [code, name, market, board, industry]
+                [code, name, market, board, industry, totalMarketValue, circulatingMarketValue, currentPrice, changePercentage, changeAmount, volume, turnover]
             );
             
             // 返回插入的ID或更新的行数
@@ -60,7 +84,7 @@ class Stock {
     static async getBoardStatistics() {
         try {
             const db = await getPool();
-            const [rows] = await db.execute(`
+            const rows = await db.execute(`
                 SELECT board, COUNT(*) as count 
                 FROM stocks 
                 GROUP BY board 

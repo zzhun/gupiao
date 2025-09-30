@@ -16,6 +16,7 @@
           placeholder="选择日期"
           format="YYYY-MM-DD"
           value-format="YYYYMMDD"
+          :disabled-date="disabledDate"
           @change="handleSingleDateChange"
           style="margin-right: 10px;"
         />
@@ -29,6 +30,7 @@
           end-placeholder="结束日期"
           format="YYYY-MM-DD"
           value-format="YYYYMMDD"
+          :disabled-date="disabledDate"
           @change="handleDateRangeChange"
           style="margin-right: 10px;"
         />
@@ -143,6 +145,37 @@
             </el-button>
           </el-col>
         </el-row>
+        
+        <!-- 筛选结果统计 -->
+        <div class="filter-stats" v-if="limitUpData.length > 0">
+          <el-row :gutter="20" style="margin-top: 15px;">
+            <el-col :span="24">
+              <div class="stats-info">
+                <span class="stat-item">
+                  <span class="label">原始数据：</span>
+                  <span class="value">{{ deduplicatedData.length }}只</span>
+                </span>
+                <span class="stat-item" v-if="hasActiveFilters">
+                  <span class="label">筛选后：</span>
+                  <span class="value highlight">{{ filteredStocks.length }}只</span>
+                </span>
+                <span class="stat-item" v-if="hasActiveFilters && filteredStocks.length !== deduplicatedData.length">
+                  <span class="label">已筛选：</span>
+                  <span class="value">{{ deduplicatedData.length - filteredStocks.length }}只</span>
+                </span>
+                <el-button 
+                  v-if="hasActiveFilters" 
+                  type="info" 
+                  size="small" 
+                  @click="clearAllFilters"
+                  style="margin-left: 20px;"
+                >
+                  清除筛选
+                </el-button>
+              </div>
+            </el-col>
+          </el-row>
+        </div>
       </el-card>
     </div>
 
@@ -170,6 +203,14 @@
         <el-table-column prop="name" label="股票名称" width="120" sortable>
           <template #default="{ row }">
             <span class="stock-name">{{ row.name }}</span>
+          </template>
+        </el-table-column>
+        
+        <el-table-column prop="date" label="涨停日期" width="120" sortable>
+          <template #default="{ row }">
+            <el-tag type="success" size="small">
+              {{ formatDisplayDate(row.date) }}
+            </el-tag>
           </template>
         </el-table-column>
         
@@ -265,15 +306,6 @@
       </el-table>
     </div>
 
-    <div class="pagination" v-if="filteredStocks.length > pageSize">
-      <el-pagination
-        :current-page="currentPage"
-        :page-size="pageSize"
-        :total="filteredStocks.length"
-        layout="total, prev, pager, next, jumper"
-        @current-change="handlePageChange"
-      />
-    </div>
   </div>
 </template>
 
@@ -295,8 +327,6 @@ const selectedDateRange = ref<string[]>([])
 const selectedBoard = ref<string>('')
 const selectedIndustry = ref<string>('')
 const searchKeyword = ref<string>('')
-const currentPage = ref(1)
-const pageSize = ref(20)
 const rangeInfo = ref<any>(null)
 const dateResults = ref<any[]>([])
 
@@ -324,7 +354,6 @@ const deduplicatedData = computed(() => {
   if (limitUpData.value.length === 0) return []
   
   const stockMap = new Map()
-  console.log(11111,limitUpData.value)
   limitUpData.value.forEach(stock => {
     const existingStock = stockMap.get(stock.code)
     if (!existingStock || stock.date > existingStock.date) {
@@ -348,6 +377,11 @@ const deduplicationStats = computed(() => {
     uniqueCount,
     removedCount
   }
+})
+
+// 判断是否有活跃的筛选条件
+const hasActiveFilters = computed(() => {
+  return selectedBoard.value || selectedIndustry.value || searchKeyword.value
 })
 
 const boardOptions = computed(() => {
@@ -377,7 +411,7 @@ const filteredStocks = computed(() => {
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase()
     filtered = filtered.filter(stock => 
-      stock.code.toLowerCase().includes(keyword) ||
+      stock.code.toLowerCase().includes(keyword) || 
       stock.name.toLowerCase().includes(keyword)
     )
   }
@@ -385,11 +419,7 @@ const filteredStocks = computed(() => {
   return filtered
 })
 
-const paginatedStocks = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredStocks.value.slice(start, end)
-})
+
 
 // 方法
 const loadTodayLimitUp = async () => {
@@ -441,13 +471,38 @@ const loadLimitUpByRange = async (startDate: string, endDate: string) => {
 
 const handleSingleDateChange = (date: string) => {
   if (date) {
-    loadLimitUpByDate(date)
+    // 检查日期是否超过今天，如果超过则调整为今天
+    const today = new Date()
+    const todayStr = today.getFullYear().toString() +
+                    (today.getMonth() + 1).toString().padStart(2, '0') +
+                    today.getDate().toString().padStart(2, '0')
+    
+    if (date > todayStr) {
+      selectedDate.value = todayStr
+      ElMessage.warning(`日期不能超过今天，已自动调整为 ${formatDisplayDate(todayStr)}`)
+      loadLimitUpByDate(todayStr)
+    } else {
+      loadLimitUpByDate(date)
+    }
   }
 }
 
 const handleDateRangeChange = (dateRange: string[]) => {
   if (dateRange && dateRange.length === 2) {
-    const [startDate, endDate] = dateRange
+    let [startDate, endDate] = dateRange
+    
+    // 检查结束日期是否超过今天，如果超过则调整为今天
+    const today = new Date()
+    const todayStr = today.getFullYear().toString() +
+                    (today.getMonth() + 1).toString().padStart(2, '0') +
+                    today.getDate().toString().padStart(2, '0')
+    
+    if (endDate > todayStr) {
+      endDate = todayStr
+      selectedDateRange.value = [startDate, endDate]
+      ElMessage.warning(`结束日期不能超过今天，已自动调整为 ${formatDisplayDate(endDate)}`)
+    }
+    
     loadLimitUpByRange(startDate, endDate)
   }
 }
@@ -475,7 +530,21 @@ const refreshData = () => {
 }
 
 const filterStocks = () => {
-  currentPage.value = 1
+  // 筛选时不需要重置分页，因为已经没有分页了
+}
+
+// 清除所有筛选条件
+const clearAllFilters = () => {
+  selectedBoard.value = ''
+  selectedIndustry.value = ''
+  searchKeyword.value = ''
+}
+
+// 禁用超过今天的日期
+const disabledDate = (time: Date) => {
+  const today = new Date()
+  today.setHours(23, 59, 59, 999) // 设置为今天的最后一刻
+  return time.getTime() > today.getTime()
 }
 
 const handleSortChange = ({ prop, order }: any) => {
@@ -483,9 +552,6 @@ const handleSortChange = ({ prop, order }: any) => {
   console.log('排序:', prop, order)
 }
 
-const handlePageChange = (page: number) => {
-  currentPage.value = page
-}
 
 const viewStockDetail = (code: string) => {
   router.push(`/stock/${code}`)
@@ -527,7 +593,7 @@ const exportData = () => {
   }
 
   const headers = [
-    '股票代码', '股票名称', '板块', '行业', '当前价格', '涨跌幅', '连板次数',
+    '股票代码', '股票名称', '涨停日期', '板块', '行业', '当前价格', '涨跌幅', '连板次数',
     '成交额(万)', '流通市值(亿)', '换手率', '首次封板时间', '最后封板时间',
     '炸板次数', '封板资金(万)'
   ]
@@ -535,7 +601,7 @@ const exportData = () => {
   const csvContent = [
     headers.join(','),
     ...filteredStocks.value.map(stock => [
-      stock.code, stock.name, stock.board, stock.hybk || '', stock.currentPrice,
+      stock.code, stock.name, formatDisplayDate(stock.date), stock.board, stock.hybk || '', stock.currentPrice,
       stock.changePercentage, stock.lbc, formatAmount(stock.amount),
       stock.ltsz, stock.hs, formatTime(stock.fbt), formatTime(stock.lbt),
       stock.zbc, formatAmount(stock.fund)
@@ -624,11 +690,6 @@ onMounted(() => {
   font-weight: bold;
 }
 
-.pagination {
-  display: flex;
-  justify-content: center;
-  margin-top: 20px;
-}
 
 .el-card {
   margin-bottom: 10px;
@@ -656,5 +717,39 @@ onMounted(() => {
 .daily-stat-item .date {
   font-size: 12px;
   color: #606266;
+}
+
+.filter-stats {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 15px;
+}
+
+.stats-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.stats-info .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.stats-info .label {
+  color: #606266;
+  font-size: 14px;
+}
+
+.stats-info .value {
+  color: #303133;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.stats-info .value.highlight {
+  color: #409EFF;
+  font-weight: 700;
 }
 </style>

@@ -104,6 +104,56 @@ export const useStockStore = defineStore('stock', () => {
     }
   }
 
+  // 获取今天的涨停股票列表
+  const fetchTodayLimitUpStocks = async () => {
+    try {
+      loading.value = true
+      const response = await axios.get('http://localhost:3000/api/stocks/limit-up-today')
+      if (response.data.success) {
+        return response.data.data
+      }
+    } catch (error) {
+      console.error('获取今天涨停股票失败:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 获取指定日期的涨停股票列表
+  const fetchLimitUpStocksByDate = async (date: string) => {
+    try {
+      loading.value = true
+      const response = await axios.get(`http://localhost:3000/api/stocks/limit-up/${date}`)
+      if (response.data.success) {
+        return response.data.data
+      }
+    } catch (error) {
+      console.error('获取指定日期涨停股票失败:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 获取日期范围内的涨停股票列表
+  const fetchLimitUpStocksByRange = async (startDate: string, endDate: string) => {
+    try {
+      loading.value = true
+      const response = await axios.get(
+        `http://localhost:3000/api/stocks/limit-up-range/${startDate}/${endDate}`
+      )
+      if (response.data.success) {
+        return response.data
+      }
+    } catch (error) {
+      console.error('获取日期范围涨停股票失败:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
   // 筛选近10天内有过涨停的股票
   const filterLimitUpStocks = async (stockCodes: string[]) => {
     try {
@@ -368,6 +418,9 @@ export const useStockStore = defineStore('stock', () => {
     filterByBoard,
     filterByMarket,
     fetchMainBoardSmallCap,
+    fetchTodayLimitUpStocks,
+    fetchLimitUpStocksByDate,
+    fetchLimitUpStocksByRange,
     filterLimitUpStocks,
     syncStocksByCodes,
     fetchKLineData,

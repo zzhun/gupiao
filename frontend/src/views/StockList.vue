@@ -299,12 +299,12 @@
         <el-table-v2
           :data="filteredStocks"
           :columns="tableColumns"
-          width="1500"
+          :width="1500"
           :height="600"
           :row-height="50"
           :header-height="50"
           :fixed="true"
-          :row-key="(row) => row.code"
+          row-key="code"
           class="stock-table-v2"
           @row-click="handleRowClick"
         />
@@ -339,7 +339,6 @@
                     type="primary"
                     size="small"
                     @click="syncSelectedStocks"
-                    :loading="syncLoading"
                   >
                     同步数据
                   </el-button>
@@ -2025,6 +2024,7 @@ const filteredKLineResults = computed(() => {
 })
 
 const hasLimitUpIn10Days = (item: any) => {
+  console.log('111',item)
   if (!item.success || !item.data || item.data.length === 0) return false;
   
   // 检查最近10天内是否有涨停

@@ -457,6 +457,70 @@ app.post('/api/stocks/batch-kline', async (req, res) => {
   }
 });
 
+// 获取当天涨停股票列表
+app.get('/api/stocks/daily-limit-up', async (req, res) => {
+  try {
+    console.log('开始获取当天涨停股票列表...');
+    
+    const limitUpStocks = await CrawlerService.getDailyLimitUpStocks();
+    
+    console.log(`获取当天涨停股票完成，共 ${limitUpStocks.count} 只`);
+    
+    res.json({
+      success: true,
+      data: limitUpStocks.data,
+      count: limitUpStocks.count,
+      timestamp: limitUpStocks.timestamp,
+      message: `获取成功，共找到 ${limitUpStocks.count} 只当天涨停股票`
+    });
+  } catch (error) {
+    console.error('获取当天涨停股票失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: '获取当天涨停股票失败'
+    });
+  }
+});
+
+// 获取指定日期的涨停股票列表
+app.get('/api/stocks/limit-up/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+    console.log(`开始获取 ${date} 的涨停股票列表...`);
+    
+    // 验证日期格式 (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      return res.status(400).json({
+        success: false,
+        error: '日期格式错误，请使用 YYYY-MM-DD 格式',
+        message: '日期格式错误'
+      });
+    }
+    
+    const limitUpStocks = await CrawlerService.getLimitUpStocksByDate(date);
+    
+    console.log(`获取 ${date} 涨停股票完成，共 ${limitUpStocks.count} 只`);
+    
+    res.json({
+      success: true,
+      data: limitUpStocks.data,
+      count: limitUpStocks.count,
+      date: date,
+      timestamp: limitUpStocks.timestamp,
+      message: `获取成功，共找到 ${limitUpStocks.count} 只 ${date} 的涨停股票`
+    });
+  } catch (error) {
+    console.error(`获取 ${req.params.date} 涨停股票失败:`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: `获取 ${req.params.date} 涨停股票失败`
+    });
+  }
+});
+
 // 筛选近10天内有过涨停的股票
 app.post('/api/stocks/filter-limit-up', async (req, res) => {
   try {

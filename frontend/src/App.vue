@@ -7,6 +7,16 @@
             <el-icon><TrendCharts /></el-icon>
             A股股票信息管理系统
           </h1>
+          <nav class="nav-menu">
+            <router-link to="/stocks" class="nav-link">
+              <el-icon><Grid /></el-icon>
+              股票列表
+            </router-link>
+            <router-link to="/limit-up" class="nav-link">
+              <el-icon><TrendCharts /></el-icon>
+              涨停股票
+            </router-link>
+          </nav>
         </div>
       </el-header>
       
@@ -22,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { TrendCharts } from '@element-plus/icons-vue'
+import { TrendCharts, Grid } from '@element-plus/icons-vue'
 </script>
 
 <style>
@@ -42,7 +52,37 @@ import { TrendCharts } from '@element-plus/icons-vue'
 .header-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.nav-menu {
+  display: flex;
+  gap: 20px;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.nav-link.router-link-active {
+  background-color: rgba(255, 255, 255, 0.2);
+  font-weight: 600;
 }
 
 .app-title {

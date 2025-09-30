@@ -570,6 +570,95 @@ class CrawlerService {
             throw error;
         }
     }
+
+    // 获取指定日期的涨停股票列表
+    static async getLimitUpStocks(date) {
+        try {
+            console.log(`开始获取 ${date} 的涨停股票列表...`);
+            
+            // 使用东方财富涨停股池API
+            const url = 'https://push2ex.eastmoney.com/getTopicZTPool';
+            const params = {
+                ut: '7eea3edcaed734bea9cbfc24409ed989',
+                dpt: 'wz.ztzt',
+                Pageindex: 0,
+                pagesize: 500, // 增加获取数量
+                sort: 'fbt:asc',
+                date: date,
+                _: Date.now()
+            };
+
+            console.log('请求参数:', params);
+            
+            const axiosInstance = this.createAxiosInstance();
+            const response = await axiosInstance.get(url, { params });
+            
+            console.log('API响应状态:', response.status);
+            
+            // 解析JSONP响应
+            let data;
+            if (typeof response.data === 'string') {
+                // 处理JSONP回调
+                const jsonpMatch = response.data.match(/callbackdata\d+\((.*)\);/);
+                if (jsonpMatch) {
+                    data = JSON.parse(jsonpMatch[1]);
+                } else {
+                    throw new Error('无法解析JSONP响应');
+                }
+            } else {
+                data = response.data;
+            }
+            
+            if (data && data.rc === 0 && data.data && data.data.pool) {
+                const stocks = data.data.pool;
+                console.log(`获取到 ${stocks.length} 只涨停股票数据`);
+                
+                // 转换数据格式
+                const limitUpStocks = stocks.map(stock => {
+                    const marketInfo = this.getMarketInfo(stock.c, stock.n);
+                    
+                    return {
+                        code: stock.c,
+                        name: stock.n,
+                        market: marketInfo.market,
+                        board: marketInfo.board,
+                        currentPrice: (stock.p / 100).toFixed(2), // 价格转换为元
+                        changePercentage: stock.zdp.toFixed(2), // 涨跌幅
+                        amount: stock.amount, // 成交额
+                        ltsz: (stock.ltsz / 100000000).toFixed(2), // 流通市值(亿元)
+                        tshare: (stock.tshare / 100000000).toFixed(2), // 总市值(亿元)
+                        hs: stock.hs.toFixed(2), // 换手率
+                        lbc: stock.lbc, // 连板次数
+                        fbt: stock.fbt, // 首次封板时间
+                        lbt: stock.lbt, // 最后封板时间
+                        fund: stock.fund, // 封板资金
+                        zbc: stock.zbc, // 炸板次数
+                        hybk: stock.hybk, // 行业板块
+                        zttj: stock.zttj, // 涨停统计
+                        date: date,
+                        timestamp: new Date().toISOString()
+                    };
+                });
+                
+                console.log(`成功解析 ${limitUpStocks.length} 只涨停股票`);
+                return {
+                    success: true,
+                    data: limitUpStocks,
+                    count: limitUpStocks.length,
+                    date: date,
+                    timestamp: new Date().toISOString()
+                };
+            } else {
+                console.error('API返回数据格式错误:', data);
+                throw new Error('涨停股票API返回数据格式错误');
+            }
+        } catch (error) {
+            console.error(`获取 ${date} 涨停股票列表失败:`, error.message);
+            console.error('错误详情:', error);
+            throw error;
+        }
+    }
+
 }
 
 export default CrawlerService;
